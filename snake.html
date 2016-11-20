@@ -95,12 +95,12 @@
 	var canvas, ctx, keystate, frames;
 
 	function main() {
-	canvas = document.createElement("Canvas");
-	canvas.width = COLS * TILE;
-	canvas.height = ROWS * TILE;
-	
-	ctx = canvas.getContext("2d");
-	document.body.appendCHild(canvas);
+		canvas = document.createElement("canvas");
+		canvas.width = COLS * TILE;
+		canvas.height = ROWS * TILE;
+
+		ctx = canvas.getContext("2d");
+		document.body.appendCHild(canvas);
 
 		frames = 0;
 		keystate = {};
