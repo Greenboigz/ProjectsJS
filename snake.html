@@ -17,57 +17,66 @@ var LEFT = 0, UP = 1, RIGHT = 2, DOWN = 3;
 var EMPTY = 0, BODY = 1, FRUIT = 2;
 
 var grid = {
-		var width: null,
-		var height: null,
-		var _grid: null,
-		
-		init: function(d, c, r){
-			
-		},
-		
-		set: function(val, x, y) {
-			
-		},
-		
-		get: function(x, y) {
-			
+	width: null,
+	height: null,
+	_grid: null,
+
+	init: function(d, c, r) {
+		this.width = c;
+		this.height = r;
+	
+		this._grid = [];
+		for (var x=0; x<this.width; x++) {
+			this._grid.push([]);
+			for (var y=0; y<this.height; y++) {
+				this._grid[x].push(d);
+			}
 		}
+	},
+
+	set: function(val, x, y) {
+		this._grid[x][y] = val;
+	},
+
+	get: function(x, y) {
+		return this._grid[x][y];
+	}
 }
 
 var snake = {
 		
-		var direction: null,
-    var last = null,
-		var _queue: null,
-		
-		init: function(d, x, y) {
-			this.direction = d;
+	var direction: null,
+    	var last = null,
+	var _queue: null,
+
+	init: function(d, x, y) {
+		this.direction = d;
       
-      this._queue = [];
-      this.insert(x,y);
-		},
+		this._queue = [];
+		this.insert(x,y);
+	},
 		
-		insert: function(x, y) {
-			this._queue.unshift({x:x, y:y});
-      this.last = this._queue[0];
-		},
+	insert: function(x, y) {
+		this._queue.unshift({x:x, y:y});
+		this.last = this._queue[0];
+	},
 		
-		remove: function() {
-			return this._queue.pop();
-		}
+	remove: function() {
+		return this._queue.pop();
+	}
 }
 
 function setFood() {
-  var empty = [];
+	var empty = [];
 	for (var x=0; x < grid.width; x++) {
 		for (var y=0; y < grid.height; y++) {
 			if (grid.get(x, y) === EMPTY) {
-        empty.push({{x:x, y:y});
-      }
+				empty.push({{x:x, y:y});
+			}
 		}
 	}
-  randpos = empty[Math.floor(Math.random() * empty.length)];
-  grid.set(FRUIT, randpos.x, randpos.y);
+	randpos = empty[Math.floor(Math.random() * empty.length)];
+	grid.set(FRUIT, randpos.x, randpos.y);
 }
 
 // Game Objects
