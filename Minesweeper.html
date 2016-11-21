@@ -3,22 +3,83 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Minesweeper</title>
+	
+	<style>
+	canvas {
+		border: 1px solid #808080
+		margin: auto;
+	}
+	</style>
 </head>
 <body>
+<center><h1>Minesweeper</h1></center>
+<div style="display:none">
+	<img id="empty_tile" src="img/empty_tile.png">
+	<img id="1_tile" src="img/1_tile.png">
+	<img id="2_tile" src="img/2_tile.png">
+	<img id="3_tile" src="img/3_tile.png">
+	<img id="4_tile" src="img/4_tile.png">
+	<img id="5_tile" src="img/5_tile.png">
+	<img id="6_tile" src="img/6_tile.png">
+	<img id="7_tile" src="img/7_tile.png">
+	<img id="8_tile" src="img/8_tile.png">
+	<img id="mine_tile" src="img/mine_tile.png">
+	<img id="flag_tile" src="img/flag_tile.png">
+	<img id="cover_tile" src="img/cover_tile.png">
+</div>
 <script>
 /* Tile */
-var TILE = 20;
-var DIM = 20;
+var TILE = 20,
+	DIM = 20,
+	BAR = 1,
+	RATIO = 0.05;
 	
-/* Tile Types */
-var EMPTY = 0, BOMB = -1;
+/* Tile Values */
+var EMPTY = 0, 
+	BOMB = -1;
+	
+/* Tile Visibilities */
+var COVERED = 0,
+	FLAGGED = 1,
+	VISIBLE = 2;
+	
+/* Win States */
+var WIN = 1,
+	LOSS = -1;
+	
+/* Text Color Values */
+var COLORS = ["#ffffff", //White (should never happen)
+			  "#0000ff", //Blue
+			  "#008000", //Green
+			  "#ff0000", //Red
+			  "#000080", //Navy
+			  "#a52a2a", //Brown
+			  "#00ffff", //Cyan
+			  "#000000", //Black
+			  "#808080"];
+			  
+var SUR_TILES = [[-1,-1],[0,-1],[1,-1],
+				 [-1,0],		[1,0],
+				 [-1,1], [0,1],	[1,1]];
+
+/* Tile Images of Numbers */
+var NUM_IMAGES = ["empty_tile",
+			  "1_tile",
+			  "2_tile",
+			  "3_tile",
+			  "4_tile",
+			  "5_tile",
+			  "6_tile",
+			  "7_tile",
+			  "8_tile"];
+			  
 
 /**
  * Game objects
  */
-canvas,	  /* HTMLCanvas */
-ctx,	  /* CanvasRenderingContext2d */
-frames,   /* number, used for animation */
+var canvas,	  /* HTMLCanvas */
+	ctx,	  /* CanvasRenderingContext2d */
+	frames,   /* number, used for animation */
 /**
  * Grid datastructor, usefull in games where the game world is
  * confined in absolute sized chunks of data or information.
@@ -28,7 +89,9 @@ frames,   /* number, used for animation */
 grid = {
     ratio: null,  /* number, the number of columns */
     dim: null, /* number, the number of rows */
-	_grid: null,  /* Array<any>, data representation */
+	_value_grid: null,  /* Array<Array<number>>, data representation */
+	_visible_grid: null, /* Array<Array<number>>, data representation */
+	_win_state: null,
   
 	/**
 	 * Initiate and fill a grid with the 
@@ -36,22 +99,28 @@ grid = {
 	 * @param  {number}   dim     number of rows/columns
 	 */
 	init: function(ratio, dim) {
-		this.ratio = ratio;
 		this.dim = dim;
-		this._grid = [];
+		this._ratio = ratio;
+		this._value_grid = [];
+		this._visible_grid = [];
+		this._win_state = 0;
+		
+		// Builds empty boards
 		for (var x=0; x < dim; x++) {
-			this._grid.push([]);
+			this._value_grid.push([]);
+			this._visible_grid.push([]);
 			for (var y=0; y < dim; y++) {
-				this._grid[x].push(EMPTY);
+				this._value_grid[x].push(EMPTY);
+				this._visible_grid[x].push(COVERED);
 			}
 		}
         
         // Sets all the bombs
-        for (var i=0; i < (dim^2)*ratio; i++) {
-            var x = Math.random()%dim, y = Math.random()%dim;
+        for (var i=0; i < Math.floor((dim*dim)*ratio); i++) {
+            var x = Math.floor(Math.random()*dim), y = Math.floor(Math.random()*dim);
             while (this.get(x,y) == BOMB) {
-                x = Math.random()%dim; 
-                y = Math.random()%dim;
+                x = Math.floor(Math.random()*dim); 
+                y = Math.floor(Math.random()*dim);
             }
             this.set(BOMB, x, y);
         }
@@ -59,9 +128,7 @@ grid = {
         // Sets all the bomb counts
         for (var x=0; x < dim; x++) {
 			for (var y=0; y < dim; y++) {
-				if (this.get(x,y) != BOMB) {
-					this.setBombCount(x,y);
-				}
+				this.setBombCount(x,y);
 			}
 		}
 	},
@@ -73,9 +140,12 @@ grid = {
 	* @param {number} y    the y-coordinate
 	*/
 	setBombCount: function(x, y) {
-		this.set(this.getBombCount(x,y),x,y);
+		if (this.get(x,y) != BOMB) {
+			var val = this.getBombCount(x,y);
+			this.set(val,x,y);
+		}
 	},
-
+	
 	/**
 	* Gets the number of bombs surrounding a single tile
 	*
@@ -84,12 +154,8 @@ grid = {
 	*/
 	getBombCount: function(x, y) {
 		var count = 0;
-		for (var i = -1; i < 2; i++) {
-			for (var j = -1; i < 2; j++) {
-			if ((i != 1 && j != 1) && this.get(i,j) == BOMB) {
-				count++;
-			}
-			}
+		for (var i = 0; i<8; i++) {
+			count += (this.get(x+SUR_TILES[i][0],y+SUR_TILES[i][1]) == BOMB);
 		}
 		return count;
 	},
@@ -102,11 +168,13 @@ grid = {
 	 * @param {number} y   the y-coordinate
 	 */
 	set: function(val, x, y) {
-		this._grid[x][y] = val;
+		if (x >= 0 && x < this.dim && y >= 0 && y < this.dim) {
+		    this._value_grid[x][y] = val;
+        }
 	},
   
 	/**
-	 * Get the value of the cell at (x, y)t
+	 * Get the value of the cell at (x, y)
 	 * 
 	 * @param  {number} x the x-coordinate
 	 * @param  {number} y the y-coordinate
@@ -114,10 +182,147 @@ grid = {
 	 */
 	get: function(x, y) {
         if (x >= 0 && x < this.dim && y >= 0 && y < this.dim) {
-		    return this._grid[x][y];
+		    return this._value_grid[x][y];
         } else {
-            return 0;
+            return EMPTY;
         }
+	},
+	
+	/**
+	 * Set the visibility of the grid cell at (x, y)
+	 * 
+	 * @param {any}    val what to set
+	 * @param {number} x   the x-coordinate
+	 * @param {number} y   the y-coordinate
+	 */
+	set_visibility: function(val, x, y) {
+		if (x >= 0 && x < this.dim && y >= 0 && y < this.dim) {
+		    this._visible_grid[x][y] = val;
+        }
+	},
+  
+	/**
+	 * Get the visibility of the cell at (x, y)
+	 * 
+	 * @param  {number} x the x-coordinate
+	 * @param  {number} y the y-coordinate
+	 * @return {any}   the visibility at the cell
+	 */
+	get_visibility: function(x, y) {
+        if (x >= 0 && x < this.dim && y >= 0 && y < this.dim) {
+		    return this._visible_grid[x][y];
+        } else {
+            return null;
+        }
+	},
+	
+	/**
+	 * Flags the tile at the given coordinate (x,y)
+	 * @param  {number} x the x-coordinate
+	 * @param  {number} y the y-coordinate
+	 */
+	flag: function(x,y) {
+		if (this.get_visibility(x,y) == COVERED) {
+			this.set_visibility(FLAGGED,x,y);
+		} else if (this.get_visibility(x,y) == FLAGGED) {
+			this.set_visibility(COVERED,x,y);
+		}
+	},
+	
+	/**
+	 * Reveals the value hidden in a covered tile
+	 * @param  {number} x the x-coordinate
+	 * @param  {number} y the y-coordinate
+	 */
+	sweep: function(x, y) {
+		if (this.get_visibility(x,y) == COVERED) {
+			this.set_visibility(VISIBLE,x,y);
+			if (this.get(x, y) == BOMB) {
+				this.lose();
+			} else if (this.get(x, y) == EMPTY) {
+				for (var i = 0; i<8; i++) {
+					this.sweep(x+SUR_TILES[i][0],y+SUR_TILES[i][1]);
+				}
+			}
+		}
+	},
+	
+	/**
+	 * Reveals the whole board because a loss has occured
+	 */
+	lose: function() {
+		for (var x = 0; x < this.dim; x++) {
+			for (var y = 0; y < this.dim; y++) {
+				if (this.get(x,y) == BOMB && this.get_visibility(x,y) == COVERED) {
+					this.set_visibility(VISIBLE, x, y);
+				}
+			}
+		}
+		this._win_state = LOSS;
+	},
+	
+	/**
+	 * Checks is the game is a loss
+	 * @return {boolean} Is the board a loss
+	 */
+	is_loss: function() {
+		return this._win_state == LOSS;
+	},
+	
+	/**
+	 * Checks is the game is a win
+	 * @return {boolean} Is the board a win
+	 */
+	is_win: function() {
+		return this._win_state == WIN;
+	},
+	
+	/**
+	 * Get the image file of the cell at (x, y)
+	 *
+	 * @param  {number} x the x-coordinate
+	 * @param  {number} y the y-coordinate
+	 * @return {image}   the image file at the cell
+	 */ 
+	get_image: function(x, y) {
+		var img = "";
+		switch (this.get_visibility(x,y)) {
+			case COVERED:
+				img = "cover_tile";
+				break;
+			case FLAGGED:
+				img = "flag_tile";
+				break;
+			default:
+				switch (this.get(x,y)) {
+					case BOMB:
+						img = "mine_tile";
+						break;
+					default:
+						img = NUM_IMAGES[this.get(x,y)]
+						break;
+				}
+				break;
+		}
+		return document.getElementById(img);
+	},
+	
+	/**
+	 * Gets the string representation of the grid
+	 */
+	print: function() {
+		var str = "";
+		for (var y=0; y<this.dim; y++) {
+			for (var x=0; x<this.dim; x++) {
+				str += this.get(x,y);
+				if (x != this.dim-1) {
+					str += ",";
+				} else {
+					console.log(str);
+					str = "";
+				}
+			}
+		}
 	}
 }
 
@@ -125,39 +330,66 @@ grid = {
  * Starts the game
  */
 function main() {
+	console.log("Main Start");
 	// create and initiate the canvas element
 	canvas = document.createElement("canvas");
 	
-	canvas.width = dim*TILE;
-	canvas.height = dim*TILE;
+	canvas.width = (DIM+BAR)*TILE+BAR;
+	canvas.height = (DIM+BAR)*TILE+BAR;
 	ctx = canvas.getContext("2d");
 	// add the canvas element to the body of the document
 	document.body.appendChild(canvas);
 	// sets an base font for bigger score display
-	ctx.font = "12px Helvetica";
+	ctx.font = "15px Helvetica";
 	frames = 0;
 	
 	// intatiate game objects and starts the game loop
 	init();
 	loop();
+	console.log("Main Finish");
 }
 /**
  * Resets and inits game objects
  */
 function init() {
-	score = 0;
+	console.log("Init Start");
 	var ratio = 0.2;
 	grid.init(ratio, DIM);
+	
+	document.body.addEventListener("mouseup", canvasTouch);
+	console.log("Init Finish");
 }
+
+/**
+ * Handles Click events on the minesweeper canvas
+ */
+function canvasTouch(event) {
+    var rect = canvas.getBoundingClientRect();
+    var x = Math.floor((event.clientX - rect.left) / grid.dim);
+    var y = Math.floor((event.clientY - rect.top) / grid.dim);
+    
+	if (!grid.is_loss() && !grid.is_win()) {
+		if (event.button == 0 || event.button == 1) {
+			grid.sweep(x,y);
+		} else if (event.button == 2) {
+			grid.flag(x,y);
+		}
+	}
+	
+	draw();
+}
+
 /**
  * The game loop function, used for game updates and rendering
  */
 function loop() {
+	console.log("Loop Start");
 	update();
 	draw();
+	console.log("Loop Finish");
 	// When ready to redraw the canvas call the loop function
 	// first. Runs about 60 frames a second
-	window.requestAnimationFrame(loop, canvas);
+	//window.requestAnimationFrame(loop, canvas);
 }
 	
 /**
@@ -171,28 +403,10 @@ function update() {
  * Render the grid to the canvas.
  */
 function draw() {
-	// iterate through the grid and draw all cells
-	for (var x=0; x < grid.width; x++) {
-		for (var y=0; y < grid.height; y++) {
-			// sets the fillstyle depending on the id of
-			// each cell
-			switch (grid.get(x, y)) {
-				case BOMB:
-					ctx.fillStyle = "#f00";
-					ctx.fillRect(x*DIM, y*DIM, DIM, DIM);
-					break;
-				case EMPTY:
-					ctx.fillStyle = "#000";
-					ctx.fillRect(x*DIM, y*DIM, DIM, DIM);
-					break;
-				default:
-					ctx.fillStyle = "#fff";
-					ctx.fillRect(x*DIM, y*DIM, DIM, DIM);
-					ctx.fillStyle = "#000";
-					ctx.fillText(grid.get(x,y));
-					break;
-			}
-			
+	for (var x=0; x < grid.dim; x++) {
+		for (var y=0; y < grid.dim; y++) {
+			ctx.fillStyle = "#f00";
+			ctx.drawImage(grid.get_image(x,y), x*TILE, y*TILE, TILE, TILE);
 		}
 	}
 }
