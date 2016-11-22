@@ -333,7 +333,11 @@ grid = {
 				img = this._images[11];
 				break;
 			case FLAGGED:
-				img = this._images[10];
+				if (this.is_loss() && this.get(x,y) != BOMB) {
+					img = this._images[13];
+				} else {
+					img = this._images[10];
+				}
 				break;
 			default:
 				switch (this.get(x,y)) {
