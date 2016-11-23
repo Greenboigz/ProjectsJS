@@ -28,7 +28,20 @@
 	<img id="cover_tile" src="img/cover_tile.png">
 	<img id="tripped_mine_tile" src="img/tripped_mine_tile.png">
 	<img id="incorrect_flag_tile" src="img/incorrect_flag_tile.png">
+	<img id="unknown_tile" src="img/unknown_tile.png">
+	<img id="0" src="img/0.png">
+	<img id="1" src="img/1.png">
+	<img id="2" src="img/2.png">
+	<img id="3" src="img/3.png">
+	<img id="4" src="img/4.png">
+	<img id="5" src="img/5.png">
+	<img id="6" src="img/6.png">
+	<img id="7" src="img/7.png">
+	<img id="8" src="img/8.png">
+	<img id="9" src="img/9.png">
+	
 </div>
+<div id="divGameStage" style="margin: 0px auto"></div>
 <script>
 /* 
 TODO: (1) Add needed images (Red Mine, Wrongly Flagged, and Unsure Flag)
@@ -49,31 +62,24 @@ var EMPTY = 0,
 /* Tile Visibilities */
 var COVERED = 0,
 	FLAGGED = 1,
-	VISIBLE = 2;
+	UNKNOWN = 2,
+	VISIBLE = 3;
 	
 /* Win States */
 var WIN = 1,
 	LOSS = -1;
-			  
+
+/* Surrounding Tile values to add */
 var SUR_TILES = [[-1,-1],[0,-1],[1,-1],
 				 [-1,0],		[1,0],
 				 [-1,1], [0,1],	[1,1]];
 
 /* Tile Images of Numbers */
-var IMAGES = ["empty_tile",
-			  "1_tile",
-			  "2_tile",
-			  "3_tile",
-			  "4_tile",
-			  "5_tile",
-			  "6_tile",
-			  "7_tile",
-			  "8_tile",
-			  "mine_tile",
-			  "flag_tile",
-			  "cover_tile",
-			  "tripped_mine_tile",
-			  "incorrect_flag_tile"];
+var TILE_IMAGES = ["empty_tile", "1_tile", "2_tile", "3_tile",
+				   "4_tile", "5_tile", "6_tile", "7_tile", 
+				   "8_tile",  "mine_tile", "flag_tile", 
+				   "cover_tile", "tripped_mine_tile",
+				   "incorrect_flag_tile", "unknown_tile"];
 			  
 /**
  * Game objects
@@ -143,9 +149,9 @@ grid = {
 	 * Loads all the images
 	 */
 	load_images: function() {
-		for (var i=0; i<IMAGES.length; i++) {
+		for (var i=0; i<TILE_IMAGES.length; i++) {
 			if (this._images[i] == null) {
-				this._images[i] = document.getElementById(IMAGES[i]);
+				this._images[i] = document.getElementById(TILE_IMAGES[i]);
 				//while (!this._images[i].complete);
 			}
 		}
@@ -257,6 +263,8 @@ grid = {
 		if (this.get_visibility(x,y) == COVERED) {
 			this.set_visibility(FLAGGED,x,y);
 		} else if (this.get_visibility(x,y) == FLAGGED) {
+			this.set_visibility(UNKNOWN,x,y);
+		} else if (this.get_visibility(x,y) == UNKNOWN) {
 			this.set_visibility(COVERED,x,y);
 		}
 	},
@@ -267,7 +275,8 @@ grid = {
 	 * @param  {number} y the y-coordinate
 	 */
 	sweep: function(x, y) {
-		if (this.get_visibility(x,y) == COVERED) {
+		if (this.get_visibility(x,y) == COVERED || 
+			this.get_visibility(x,y) == UNKNOWN) {
 			this.set_visibility(VISIBLE,x,y);
 			if (this.get(x, y) == BOMB) {
 				this.lose(x, y);
@@ -281,7 +290,8 @@ grid = {
 				   this.get(x, y) == this.getFlagCount(x, y)) {
 			for (var i = 0; i<SUR_TILES.length; i++) {
 				var xx = x+SUR_TILES[i][0], yy = y+SUR_TILES[i][1];
-				if (this.get_visibility(xx,yy) == COVERED) {
+				if (this.get_visibility(xx,yy) == COVERED || 
+					this.get_visibility(xx,yy) == UNKNOWN) {
 					this.sweep(xx, yy);
 				}
 			}
@@ -295,7 +305,8 @@ grid = {
 		this._tripped_mine_tile = [x,y];
 		for (var i = 0; i < this.dim; i++) {
 			for (var j = 0; j < this.dim; j++) {
-				if (this.get(i,j) == BOMB && this.get_visibility(i,j) == COVERED) {
+				if (this.get(i,j) == BOMB && (this.get_visibility(i,j) == COVERED || 
+					this.get_visibility(i,j) == UNKNOWN)) {
 					this.set_visibility(VISIBLE,i,j);
 				}
 			}
@@ -339,6 +350,9 @@ grid = {
 					img = this._images[10];
 				}
 				break;
+			case UNKNOWN:
+				img = this._images[14];
+				break;
 			default:
 				switch (this.get(x,y)) {
 					case BOMB:
@@ -380,9 +394,10 @@ grid = {
 /**
  * Starts the game
  */
-function main() {
+function loadCanvas(id) {
 	// create and initiate the canvas element
 	canvas = document.createElement("canvas");
+	div = document.getElementById(id);
 	
 	canvas.width = (DIM+BAR)*TILE+BAR;
 	canvas.height = (DIM+BAR)*TILE+BAR;
@@ -396,11 +411,12 @@ function main() {
 		e.preventDefault();
 	};
 	
-	frames = 0;
-	
 	// intatiate game objects and starts the game loop
 	init();
-	loop();
+	draw();
+	
+	div.width = canvas.width;
+	div.appendChild(canvas);
 	console.log("Main Finish");
 }
 
@@ -434,24 +450,6 @@ function canvasTouch(event) {
 }
 
 /**
- * The game loop function, used for game updates and rendering
- */
-function loop() {
-	update();
-	draw();
-	// When ready to redraw the canvas call the loop function
-	// first. Runs about 60 frames a second
-	//window.requestAnimationFrame(loop, canvas);
-}
-	
-/**
- * Updates the game logic
- */
-function update() {
-	frames++;
-}
-
-/**
  * Render the grid to the canvas.
  */
 function draw() {
@@ -462,42 +460,10 @@ function draw() {
 			ctx.drawImage(img, x*TILE, y*TILE, TILE, TILE);
 		}
 	}
-	/*
-	ctx.fillStyle = "#e0e0e0";
-	ctx.fillRect(0,0,(DIM+BAR)*TILE+BAR,(DIM+BAR)*TILE+BAR);
-	
-	// iterate through the grid and draw all cells
-	for (var x=0; x < grid.dim; x++) {
-		for (var y=0; y < grid.dim; y++) {
-			// sets the fillstyle depending on the id of
-			// each cell
-			switch (grid.get(x, y)) {
-				case BOMB:
-					ctx.fillStyle = "#f00";
-					ctx.fillRect(BAR+x*(TILE+BAR), BAR+y*(TILE+BAR), TILE, TILE);
-					break;
-				case EMPTY:
-					ctx.fillStyle = "#D3D3D3";
-					ctx.fillRect(BAR+x*(TILE+BAR), BAR+y*(TILE+BAR), TILE, TILE);
-					break;
-				default:
-					ctx.fillStyle = COLORS[grid.get(x,y)];
-					ctx.fillText(grid.get(x,y), BAR+(x+0.25)*(TILE+BAR), BAR+(y+0.75)*(TILE+BAR));
-					break;
-			}
-		}
-	}
-	
-	for (var x=0; x <= grid.dim; x++) {
-		ctx.fillStyle = "#000"
-		ctx.fillRect(x*(TILE+BAR), 0, BAR, BAR+grid.dim*(TILE+BAR));
-		ctx.fillRect(0, x*(TILE+BAR), BAR+grid.dim*(TILE+BAR), BAR);
-	}
-	*/
 }
-	
+
 // start and run the game
-main();
+loadCanvas("divGameStage");
 </script>
 </body>
 </html>
