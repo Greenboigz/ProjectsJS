@@ -3,65 +3,53 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Minesweeper</title>
+	<style>
+		.dropbtn {
+			background-color: #D0D0D0;
+			color: white;
+			font-size: 16px;
+			min-width: 60px;
+			cursor: pointer;
+		}
+		
+		/* Dropdown button on hover & focus */
+		.dropbtn:hover, .dropbtn:focus {
+			background-color: #AAAAAA;
+		}
+
+		/* The container <div> - needed to position the dropdown content */
+		.dropdown {
+			position: relative;
+			display: inline-block;
+		}
+
+		/* Dropdown Content (Hidden by Default) */
+		.dropdown-content {
+			display: none;
+			position: absolute;
+			background-color: #f9f9f9;
+			min-width: 60px;
+			box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+		}
+
+		/* Links inside the dropdown */
+		.dropdown-content a {
+			color: black;
+			text-decoration: none;
+			text-align:center;
+			display: block;
+			border-bottom: 1px solid #808080;
+			cursor: pointer;
+		}
+
+		/* Change color of dropdown links on hover */
+		.dropdown-content a:hover {background-color: #f1f1f1}
+
+		/* Show the dropdown menu (use JS to add this class to the .dropdown-content container when the user clicks on the dropdown button) */
+		.show {display:block;}
+	</style>
 </head>
 <body>
-<center><h1>Minesweeper</h1></center>
-<div style="display:none">
-	<img id="empty_tile" src="img/empty_tile.png">
-	<img id="1_tile" src="img/1_tile.png">
-	<img id="2_tile" src="img/2_tile.png">
-	<img id="3_tile" src="img/3_tile.png">
-	<img id="4_tile" src="img/4_tile.png">
-	<img id="5_tile" src="img/5_tile.png">
-	<img id="6_tile" src="img/6_tile.png">
-	<img id="7_tile" src="img/7_tile.png">
-	<img id="8_tile" src="img/8_tile.png">
-	<img id="mine_tile" src="img/mine_tile.png">
-	<img id="flag_tile" src="img/flag_tile.png">
-	<img id="cover_tile" src="img/cover_tile.png">
-	<img id="tripped_mine_tile" src="img/tripped_mine_tile.png">
-	<img id="incorrect_flag_tile" src="img/incorrect_flag_tile.png">
-	<img id="unknown_tile" src="img/unknown_tile.png">
-	<img id="0" src="img/0.png">
-	<img id="1" src="img/1.png">
-	<img id="2" src="img/2.png">
-	<img id="3" src="img/3.png">
-	<img id="4" src="img/4.png">
-	<img id="5" src="img/5.png">
-	<img id="6" src="img/6.png">
-	<img id="7" src="img/7.png">
-	<img id="8" src="img/8.png">
-	<img id="9" src="img/9.png">
-	<img id="hor_border" src="img/horizontal_border.png">
-	<img id="ver_border" src="img/vertical_border.png">
-	<img id="upper_left_corner" src="img/upper_left_corner.png">
-	<img id="upper_right_corner" src="img/upper_right_corner.png">
-	<img id="bottom_right_corner" src="img/bottom_right_corner.png">
-	<img id="bottom_left_corner" src="img/bottom_left_corner.png">
-	<img id="left_T_corner" src="img/left_T_corner.png">
-	<img id="right_T_corner" src="img/right_T_corner.png">
-	<img id="happy_face" src="img/happy_face.png">
-	<img id="pressed_happy_face" src="img/pressed_happy_face.png">
-	<img id="cool_face" src="img/cool_face.png">
-	<img id="pressed_cool_face" src="img/pressed_cool_face.png">
-	<img id="dead_face" src="img/dead_face.png">
-	<img id="pressed_dead_face" src="img/pressed_dead_face.png">
-	<img id="scared_face" src="img/scared_face.png">
-</div>
-<table id="divGameTable">
-	<tr style="text-align:center">
-		<td></td>
-		<td></td>
-		<td></td>
-	</tr>
-	<tr>
-		<td width="50%"></td>
-		<td>
-			<div id="divGameStage" style="background-color:#C0C0C0"></div>
-		</td>
-		<td width="50%"></td>
-	</tr>
-</table>	
 <script>
 /* 
 TODO: (1) Add border
@@ -69,6 +57,9 @@ TODO: (1) Add border
 	  (3) Can Win/Lose and Reset
 	  (4) Add scoreboard
 */
+
+/* Levels */
+var EASY = 0, MEDIUM = 1, HARD = 2, EXPERT = 3;
 
 /* Tile */
 var TILE = 16,
@@ -566,13 +557,11 @@ grid = {
 /**
  * Starts the game
  */
-function loadCanvas(id) {
+function loadCanvas(id, level) {
 	// create and initiate the canvas element
 	canvas = document.createElement("canvas");
 	div = document.getElementById(id);
 	
-	canvas.width = DIM*TILE + 2*BORDER_THICKNESS;
-	canvas.height = DIM*TILE + 3*BORDER_THICKNESS + SCORE_BOARD_HEIGHT;
 	ctx = canvas.getContext("2d");
 	// add the canvas element to the body of the document
 	document.body.appendChild(canvas);
@@ -584,8 +573,11 @@ function loadCanvas(id) {
 	};
 	
 	// intatiate game objects and starts the game loop
-	init();
+	init(level);
 	draw();
+	if (div.childNodes[0]) {
+		div.removeChild(div.childNodes[0]);
+	}
 	div.appendChild(canvas);
 	
 	loop();
@@ -594,9 +586,30 @@ function loadCanvas(id) {
 /**
  * Resets and inits game objects
  */
-function init() {
-	var ratio = 0.15;
-	grid.init(ratio, DIM, DIM);
+function init(level) {
+	var ratio = 0.15, width = 9, height = 9;
+	switch (level) {
+		case EASY:
+			width = 9;
+			height = 9;
+			break;
+		case MEDIUM:
+			width = 16;
+			height = 16;
+			break;
+		case HARD:
+			width = 25;
+			height = 25;
+			break;
+		case EXPERT:
+			width = 40;
+			height = 25;
+			break;
+	}
+	grid.init(ratio, width, height);
+	canvas.width = width*TILE + 2*BORDER_THICKNESS;
+	canvas.height = height*TILE + 3*BORDER_THICKNESS + SCORE_BOARD_HEIGHT;
+	
 	timer.init();
 	load_images();
 	face_pressed = false;
@@ -850,8 +863,98 @@ function drawBoard() {
 	}
 }
 
-// start and run the game
-loadCanvas("divGameStage");
+/* When the user clicks on the button, 
+toggle between hiding and showing the dropdown content */
+function myFunction() {
+    document.getElementById("myDropdown").classList.toggle("show");
+}
+
+// Close the dropdown menu if the user clicks outside of it
+window.onclick = function(event) {
+	if (!event.target.matches('.dropbtn')) {
+
+	var dropdowns = document.getElementsByClassName("dropdown-content");
+	var i;
+	for (i = 0; i < dropdowns.length; i++) {
+		var openDropdown = dropdowns[i];
+			if (openDropdown.classList.contains('show')) {
+				openDropdown.classList.remove('show');
+			}
+		}
+	}
+}
+</script>
+
+<center><h1>Minesweeper</h1></center>
+<div style="display:none">
+	<img id="empty_tile" src="img/empty_tile.png">
+	<img id="1_tile" src="img/1_tile.png">
+	<img id="2_tile" src="img/2_tile.png">
+	<img id="3_tile" src="img/3_tile.png">
+	<img id="4_tile" src="img/4_tile.png">
+	<img id="5_tile" src="img/5_tile.png">
+	<img id="6_tile" src="img/6_tile.png">
+	<img id="7_tile" src="img/7_tile.png">
+	<img id="8_tile" src="img/8_tile.png">
+	<img id="mine_tile" src="img/mine_tile.png">
+	<img id="flag_tile" src="img/flag_tile.png">
+	<img id="cover_tile" src="img/cover_tile.png">
+	<img id="tripped_mine_tile" src="img/tripped_mine_tile.png">
+	<img id="incorrect_flag_tile" src="img/incorrect_flag_tile.png">
+	<img id="unknown_tile" src="img/unknown_tile.png">
+	<img id="0" src="img/0.png">
+	<img id="1" src="img/1.png">
+	<img id="2" src="img/2.png">
+	<img id="3" src="img/3.png">
+	<img id="4" src="img/4.png">
+	<img id="5" src="img/5.png">
+	<img id="6" src="img/6.png">
+	<img id="7" src="img/7.png">
+	<img id="8" src="img/8.png">
+	<img id="9" src="img/9.png">
+	<img id="hor_border" src="img/horizontal_border.png">
+	<img id="ver_border" src="img/vertical_border.png">
+	<img id="upper_left_corner" src="img/upper_left_corner.png">
+	<img id="upper_right_corner" src="img/upper_right_corner.png">
+	<img id="bottom_right_corner" src="img/bottom_right_corner.png">
+	<img id="bottom_left_corner" src="img/bottom_left_corner.png">
+	<img id="left_T_corner" src="img/left_T_corner.png">
+	<img id="right_T_corner" src="img/right_T_corner.png">
+	<img id="happy_face" src="img/happy_face.png">
+	<img id="pressed_happy_face" src="img/pressed_happy_face.png">
+	<img id="cool_face" src="img/cool_face.png">
+	<img id="pressed_cool_face" src="img/pressed_cool_face.png">
+	<img id="dead_face" src="img/dead_face.png">
+	<img id="pressed_dead_face" src="img/pressed_dead_face.png">
+	<img id="scared_face" src="img/scared_face.png">
+</div>
+<table id="divGameTable">
+	<tr>
+		<td></td>
+		<td>
+			<div class="dropdown">
+				<button onclick="myFunction()" class="dropbtn">Level</button>
+				<div id="myDropdown" class="dropdown-content">
+					<a onclick='loadCanvas("divGameStage", 0)'>Easy</a>
+					<a onclick='loadCanvas("divGameStage", 1)'>Medium</a>
+					<a onclick='loadCanvas("divGameStage", 2)'>Hard</a>
+					<a onclick='loadCanvas("divGameStage", 3)'>Expert</a>
+				</div>
+			</div>
+		</td>
+		<td></td>
+	</tr>
+	<tr>
+		<td width="50%"></td>
+		<td>
+			<div id="divGameStage" style="background-color:#C0C0C0"></div>
+		</td>
+		<td width="50%"></td>
+	</tr>
+</table>	
+<script>
+	// start and run the game
+	loadCanvas("divGameStage", 0);
 </script>
 </body>
 </html>
