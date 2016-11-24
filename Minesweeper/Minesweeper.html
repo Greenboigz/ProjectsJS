@@ -72,9 +72,10 @@ TODO: (1) Add border
 
 /* Tile */
 var TILE = 16,
-	DIM = 20,
+	DIM = 26,
 	BAR = 1,
-	RATIO = 0.05;
+	RATIO = 0.05,
+	MS_PER_S = 1000;
 	
 var BORDER_THICKNESS = 12;
 
@@ -128,7 +129,7 @@ var FACE_IMAGES = ["cool_face", "pressed_cool_face",
 				   "happy_face", "pressed_happy_face"];
 				
 /* Stores all the image data */				
-var IMAGES = []
+var IMAGES = [];
 					 
 /**
  * Game objects
@@ -141,7 +142,68 @@ var canvas,	  /* HTMLCanvas */
 	board_pressed,
 	
 /**
- * Grid datastructor, usefull in games where the game world is
+ * Timer datastructor, used for keeping track of the game's 
+ * time for highscores.
+ * 
+ * @type {Object}
+ */
+timer = {
+	_start_time: null, /* Starting time */
+	_end_time: null, /* Ending time */
+	_timer: null, /* Timer is on */
+	
+	/**
+	 * Initiate the timer.
+	 */
+	init: function() {
+		this._start_time = 0;
+		this._end_time = 0;
+		this._timer = false;
+	},
+	
+	/**
+	 * Resets the timer.
+	 */
+	reset: function() {
+		this._start_time = 0;
+		this._end_time = 0;
+		this._timer = false;
+	},
+	
+	/**
+	 * Starts the timer.
+	 */
+	start: function() {
+		if (!this._timer) {
+			this._timer = true;
+			this._start_time = Date.now();
+		}
+	},
+	
+	/**
+	 * Stops the timer.
+	 */
+	stop: function() {
+		if (this._timer) {
+			this._timer = false;
+			this._end_time = Date.now();
+		}
+	},
+	
+	/**
+	 * Gets the time read on the timer.
+	 */
+	get_time: function() {
+		if (this._timer) {
+			return (Date.now() - this._start_time) / MS_PER_S;
+		} else {
+			return (this._end_time - this._start_time) / MS_PER_S;
+		}
+	}
+}
+	
+/**
+ * Grid datastructor, useful in games where the game world is
  * confined in absolute sized chunks of data or information.
  * 
  * @type {Object}
@@ -151,6 +213,7 @@ grid = {
     height: null, /* number, the number of columns */
 	width: null, /* number, the number of rows */
 	flag_count: null, /* number, the number of flags */
+	_mines_set: null,
 	_visible_count: null, /* number, the number of visible tiles */
 	_MAX_VISIBLE_COUNT: null, /* number, the maximum number of visible tiles */
 	_value_grid: null,  /* Array<Array<number>>, data representation */
@@ -175,6 +238,7 @@ grid = {
 		this._visible_grid = [];
 		this._win_state = 0;
 		this._tripped_mine_tile = [-1,-1];
+		this._mines_set = false;
 				
 		// Builds empty boards
 		for (var x=0; x < width; x++) {
@@ -185,23 +249,41 @@ grid = {
 				this._visible_grid[x].push(COVERED);
 			}
 		}
-        
-        // Sets all the bombs
+	},
+	
+	/**
+	 * Builds the board around the initial point (init_x, init_y).
+	 */
+	build_board: function(init_x, init_y) {
+		timer.start();
+	
+		// Sets all the bombs
         for (var i=0; i < this.flag_count; i++) {
-            var x = Math.floor(Math.random()*width), y = Math.floor(Math.random()*height);
-            while (this.get(x,y) == BOMB) {
-                x = Math.floor(Math.random()*width); 
-                y = Math.floor(Math.random()*height);
+            var x = Math.floor(Math.random()*this.width), 
+				y = Math.floor(Math.random()*this.height);
+            while (this.get(x,y) == BOMB || this.is_n_away(1,init_x, init_y, x, y)) {
+                x = Math.floor(Math.random()*this.width); 
+                y = Math.floor(Math.random()*this.height);
             }
             this.set(BOMB, x, y);
         }
         
         // Sets all the bomb counts
-        for (var x=0; x < width; x++) {
-			for (var y=0; y < height; y++) {
-				this.setBombCount(x,y);
+        for (var x=0; x < this.width; x++) {
+			for (var y=0; y < this.height; y++) {
+				this.set_bomb_count(x,y);
 			}
 		}
+		
+		this._mines_set = true;
+		console.log("The board has been built");
+	},
+	
+	/**
+	 * Checks if the two points are within n distance of eachother.
+	 */
+	is_n_away: function(n, x1, y1, x2, y2) {
+		return (Math.abs(x2 - x1) <= n && Math.abs(y2 - y1) <= n);
 	},
 	
 	/**
@@ -209,6 +291,7 @@ grid = {
 	 */
 	reset: function() {
 		this.init(this.ratio, this.width, this.height);
+		this._mines_set = false;
 	},
     
 	/**
@@ -217,9 +300,9 @@ grid = {
 	 * @param {number} x    the x-coordinate
 	 * @param {number} y    the y-coordinate
 	 */
-	setBombCount: function(x, y) {
+	set_bomb_count: function(x, y) {
 		if (this.get(x,y) != BOMB) {
-			var val = this.getBombCount(x,y);
+			var val = this.get_bomb_count(x,y);
 			this.set(val,x,y);
 		}
 	},
@@ -230,7 +313,7 @@ grid = {
 	 * @param {number} x    the x-coordinate
 	 * @param {number} y    the y-coordinate
 	 */
-	getBombCount: function(x, y) {
+	get_bomb_count: function(x, y) {
 		var count = 0;
 		for (var i = 0; i<SUR_TILES.length; i++) {
 			count += (this.get(x+SUR_TILES[i][0],y+SUR_TILES[i][1]) == BOMB);
@@ -244,7 +327,7 @@ grid = {
 	 * @param {number} x    the x-coordinate
 	 * @param {number} y    the y-coordinate
 	 */
-	getFlagCount: function(x, y) {
+	get_flag_count: function(x, y) {
 		var count = 0;
 		for (var i = 0; i<SUR_TILES.length; i++) {
 			count += (this.get_visibility(x+SUR_TILES[i][0],y+SUR_TILES[i][1]) == FLAGGED);
@@ -331,6 +414,9 @@ grid = {
 	 * @param  {number} y the y-coordinate
 	 */
 	sweep: function(x, y) {
+		if (!this._mines_set) {
+			this.build_board(x, y);
+		}
 		if (this.get_visibility(x,y) == COVERED || 
 			this.get_visibility(x,y) == UNKNOWN) {
 			this.set_visibility(VISIBLE,x,y);
@@ -344,7 +430,7 @@ grid = {
 			}
 		} else if (this.get_visibility(x, y) == VISIBLE && 
 				   this.get(x, y) != EMPTY &&
-				   this.get(x, y) == this.getFlagCount(x, y)) {
+				   this.get(x, y) == this.get_flag_count(x, y)) {
 			for (var i = 0; i<SUR_TILES.length; i++) {
 				var xx = x+SUR_TILES[i][0], yy = y+SUR_TILES[i][1];
 				if (this.get_visibility(xx,yy) == COVERED || 
@@ -362,16 +448,20 @@ grid = {
 	 * Reveals the whole board because a loss has occured
 	 */
 	lose: function(x, y) {
-		this._tripped_mine_tile = [x,y];
-		for (var i = 0; i < this.width; i++) {
-			for (var j = 0; j < this.height; j++) {
-				if (this.get(i,j) == BOMB && (this.get_visibility(i,j) == COVERED || 
-					this.get_visibility(i,j) == UNKNOWN)) {
-					this.set_visibility(VISIBLE,i,j);
+		if (this._win_state != LOSS) {
+			timer.stop();
+			this._tripped_mine_tile = [x,y];
+			
+			for (var i = 0; i < this.width; i++) {
+				for (var j = 0; j < this.height; j++) {
+					if (this.get(i,j) == BOMB && (this.get_visibility(i,j) == COVERED || 
+						this.get_visibility(i,j) == UNKNOWN)) {
+						this.set_visibility(VISIBLE,i,j);
+					}
 				}
 			}
+			this._win_state = LOSS;
 		}
-		this._win_state = LOSS;
 	},
 	
 	/**
@@ -387,6 +477,7 @@ grid = {
 	 */
 	win: function() {
 		if (this._win_state != WIN) {
+			timer.stop();
 			for (var i = 0; i < this.width; i++) {
 				for (var j = 0; j < this.height; j++) {
 					if (this.get(i,j) == BOMB && this.get_visibility(i,j) != FLAGGED) {
@@ -416,35 +507,39 @@ grid = {
 	 */ 
 	get_image: function(x, y) {
 		var img;
-		switch (this.get_visibility(x,y)) {
-			case COVERED:
-				img = IMAGES[11];
-				break;
-			case FLAGGED:
-				if (this.is_loss() && this.get(x,y) != BOMB) {
-					img = IMAGES[13];
-				} else {
-					img = IMAGES[10];
-				}
-				break;
-			case UNKNOWN:
-				img = IMAGES[14];
-				break;
-			default:
-				switch (this.get(x,y)) {
-					case BOMB:
-						if (x == this._tripped_mine_tile[0] &&
-							y == this._tripped_mine_tile[1]) {
-							img = IMAGES[12];
-						} else {
-							img = IMAGES[9];
-						}
-						break;
-					default:
-						img = IMAGES[this.get(x,y)]
-						break;
-				}
-				break;
+		if (!this._mines_set) {
+			img = IMAGES[11];
+		} else {
+			switch (this.get_visibility(x,y)) {
+				case COVERED:
+					img = IMAGES[11];
+					break;
+				case FLAGGED:
+					if (this.is_loss() && this.get(x,y) != BOMB) {
+						img = IMAGES[13];
+					} else {
+						img = IMAGES[10];
+					}
+					break;
+				case UNKNOWN:
+					img = IMAGES[14];
+					break;
+				default:
+					switch (this.get(x,y)) {
+						case BOMB:
+							if (x == this._tripped_mine_tile[0] &&
+								y == this._tripped_mine_tile[1]) {
+								img = IMAGES[12];
+							} else {
+								img = IMAGES[9];
+							}
+							break;
+						default:
+							img = IMAGES[this.get(x,y)]
+							break;
+					}
+					break;
+			}
 		}
 		return img;
 	},
@@ -491,9 +586,9 @@ function loadCanvas(id) {
 	// intatiate game objects and starts the game loop
 	init();
 	draw();
-	
 	div.appendChild(canvas);
-	console.log("Main Finish");
+	
+	loop();
 }
 
 /**
@@ -502,6 +597,7 @@ function loadCanvas(id) {
 function init() {
 	var ratio = 0.15;
 	grid.init(ratio, DIM, DIM);
+	timer.init();
 	load_images();
 	face_pressed = false;
 	
@@ -509,6 +605,15 @@ function init() {
 	document.body.addEventListener("mouseup", canvasRelease);
 }
 
+/**
+ * The game loop function, used for game updates and rendering
+ */
+function loop() {
+	draw();
+	// When ready to redraw the canvas call the loop function
+	// first. Runs about 60 frames a second
+	window.requestAnimationFrame(loop, canvas);
+}
 	
 /**
  * Loads all the images
@@ -578,10 +683,9 @@ function canvasRelease(event) {
 	if (event.button == 0 || event.button == 1) {
 		if (isOnBoard(x,y) && !grid.is_loss() && !grid.is_win()) {				
 			grid.sweep(Math.floor((x-x_offset)/TILE), Math.floor((y-y_offset)/TILE));
-		} else if (face_pressed) {
-			if (isOnFace(x,y)) {
-				grid.reset();
-			}
+		} else if (face_pressed && isOnFace(x,y)) {
+			grid.reset();
+			timer.reset();
 		}
 	} else if (event.button == 2) {
 		if (isOnBoard(x,y) && !grid.is_loss() && !grid.is_win()) {
@@ -685,7 +789,7 @@ function drawScoreBoard() {
 		BORDER_THICKNESS + NUM_OFFSET, NUMBER_WIDTH, NUMBER_HEIGHT);
 	
 	// Time
-	time = 0;
+	time = timer.get_time();
 	var hundreds = Math.floor((time%1000)/100);
 	var tens = Math.floor((time%100)/10);
 	var units = Math.floor((time%10)/1);
