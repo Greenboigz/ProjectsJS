@@ -1,4 +1,10 @@
 /* 
+Description:
+This project was the first really project I worked on in JavaScript. I didn't have a strong understanding
+of the language going into the project and I learned a lot about using JavaScript and how powerful the 
+language can be. I made this project without using a lot of the fantastic class syntaxes in ES6 because I 
+made the project before I learned about ES6.
+
 TODO: (1) Custom Levels
 	  (2) Add multiplayer
 	    (a) Multiple players join one board.
